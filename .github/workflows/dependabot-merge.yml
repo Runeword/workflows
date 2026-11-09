@@ -1,0 +1,57 @@
+name: dependabot-merge
+# Merges a Dependabot pull request, unless it is a major version or edits
+# flake.nix: those wait for a person. A repository calls it from a
+# pull_request workflow of its own (README.md), from a job that grants the two
+# permissions below: this workflow can only lower what that job grants. It is
+# GitHub's documented pattern for Dependabot auto-merge: a pull_request run
+# started by Dependabot gets a read-only token unless the workflow asks for
+# more. Not pull_request_target: from 2026-12-02 GitHub blocks it by default
+# in public repositories.
+on:
+  workflow_call:
+    inputs:
+      auto-merge:
+        description: >-
+          Turn on auto-merge, so the pull request merges once its required
+          checks pass. False merges right away, and only the commit the
+          calling workflow tested, for a repository without auto-merge (a
+          private one on GitHub Free): call it from a job that needs the
+          checks.
+        type: boolean
+        default: true
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  merge:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3
+      # An update that edits flake.nix changes an input's ref, not only its
+      # locked revision: that is how terminal's nixpkgs-24-05 was moved to
+      # nixos-25.11 (Runeword/terminal#5). It waits for a person, like a major
+      # version. A failed lookup fails the job, so nothing merges.
+      - id: files
+        run: |
+          files=$(gh pr diff --name-only "$PR_URL")
+          case "$files" in
+            *flake.nix*) echo "edits-flake-nix=true" ;;
+            *) echo "edits-flake-nix=false" ;;
+          esac >>"$GITHUB_OUTPUT"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - if: steps.metadata.outputs.update-type != 'version-update:semver-major' && steps.files.outputs.edits-flake-nix == 'false'
+        run: |
+          if [ "$AUTO_MERGE" = true ]; then
+            gh pr merge --auto --squash "$PR_URL"
+          else
+            gh pr merge --squash --match-head-commit "$HEAD_SHA" "$PR_URL"
+          fi
+        env:
+          AUTO_MERGE: ${{ inputs.auto-merge }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
