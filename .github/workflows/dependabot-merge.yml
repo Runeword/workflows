@@ -43,12 +43,17 @@ jobs:
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # GitHub's "Automatically delete head branches" doesn't reliably act on a
+      # merge made with this token (Runeword/admin#2 and #3 kept their
+      # branches), so the direct merge deletes the branch itself; a branch
+      # GitHub deleted first counts as done. gh ignores --delete-branch when it
+      # turns auto-merge on: there, GitHub merges and deletes the branch.
       - if: steps.metadata.outputs.update-type != 'version-update:semver-major' && steps.files.outputs.edits-flake-nix == 'false'
         run: |
           if [ "$AUTO_MERGE" = true ]; then
             gh pr merge --auto --squash "$PR_URL"
           else
-            gh pr merge --squash --match-head-commit "$HEAD_SHA" "$PR_URL"
+            gh pr merge --squash --delete-branch --match-head-commit "$HEAD_SHA" "$PR_URL"
           fi
         env:
           AUTO_MERGE: ${{ inputs.auto-merge }}
