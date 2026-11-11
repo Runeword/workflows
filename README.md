@@ -40,6 +40,11 @@ merges right away, only the commit those checks tested:
       auto-merge: false
 ```
 
+Merging right away, it deletes the pull request's branch too: GitHub's
+"Automatically delete head branches" (set in `Runeword/admin`) doesn't reliably
+act on a merge made with the workflow's token. With auto-merge, GitHub merges
+and deletes the branch itself.
+
 ## Releasing
 
 A change reaches the callers only through a release. Lint it
@@ -51,3 +56,17 @@ looked at in each repository as a new major version.
 
 This repository's own Dependabot pull requests are merged by hand: nothing
 here merges itself.
+
+## Development
+
+`direnv allow` (or `nix develop`) enters the dev shell, which installs the
+pre-commit hooks of [Runeword/lefthook](https://github.com/Runeword/lefthook).
+A commit formats, lints and scans for secrets what is staged, then splits it
+into one commit per file, so `git commit` reports a failure even when it
+worked. `LEFTHOOK_EXCLUDE=auto-commit git commit` makes one commit with your
+own message.
+
+`nix flake check`, run by hand (there is no CI here), fails when
+`lefthook-generated.yml` is not what `devshells/lefthook.nix` renders: after a
+change to that file or a bump of the `lefthook` input, run `lefthook-regen` in
+the shell and commit the result.
