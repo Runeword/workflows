@@ -1,0 +1,7 @@
+# Keeps the line breaks of a folded block (`description: >-` in
+# dependabot-merge.yml), which yamlfmt otherwise joins into one line. Leave the
+# rest at yamlfmt's defaults: lefthook-generated.yml is rendered in them, and
+# the drift check fails if the hook reformats it (lefthook's README, "CI").
+formatter:
+  type: basic
+  scan_folded_as_literal: true
